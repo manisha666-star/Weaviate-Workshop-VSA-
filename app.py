@@ -4,61 +4,62 @@ from sentence_transformers import SentenceTransformer
 from config import Config
 import logging
 
-# Set up logging
+# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Initialize Weaviate and embedding model
 try:
-    # Initialize clients
-    client = weaviate.connect_to_wcs(
+    auth = weaviate.auth.AuthApiKey(Config.WEAVIATE_API_KEY)
+    client = weaviate.connect_to_weaviate_cloud(
         cluster_url=Config.WEAVIATE_URL,
-        auth_credentials=weaviate.auth.AuthApiKey(Config.WEAVIATE_API_KEY)
+        auth_credentials=auth,
+        skip_init_checks=True  # Prevent gRPC timeout issues
     )
-    
     model = SentenceTransformer(Config.EMBEDDING_MODEL)
-    logger.info("Successfully initialized Weaviate client and model")
-
+    logger.info("✅ Successfully initialized Weaviate client and model")
 except Exception as e:
-    st.error(f"Error initializing clients: {str(e)}")
-    st.info("Please check your WEAVIATE_URL and WEAVIATE_API_KEY in the .env file")
-    raise
+    st.error("❌ Failed to connect to Weaviate or load model.")
+    st.stop()
 
 # Streamlit UI
-st.title("🎬 Movie Search")
-query = st.text_input("Search movies by plot, title, or theme")
+st.title("🎬 Semantic Movie Search")
+st.write("Search for movies using natural language queries.")
+
+query = st.text_input("Enter your search query:", placeholder="e.g. epic science fiction with aliens")
 
 if query:
     try:
-        # Generate embeddings and search
-        vector = model.encode(query).tolist()
-        
-        query = client.query.get("Movie", ["title", "plot", "genres", "year"])\
-            .with_near_vector({
-                "vector": vector
-            })\
-            .with_limit(5)
-        
-        results = query.do()
+        # Get the collection
+        movie_collection = client.collections.get("Movie")
 
-        if results.get("errors"):
-            st.error("Error in Weaviate query:")
-            for error in results["errors"]:
-                st.error(f"- {error['message']}")
+        # Generate embedding
+        vector = model.encode(query).tolist()
+
+        # Perform semantic search
+        results = movie_collection.query.near_vector(
+            near_vector=vector,
+            limit=5,
+            return_properties=["title", "overview", "genres", "release_date", "vote_average"],
+            return_metadata=["distance"]
+        )
+
+        if not results.objects:
+            st.warning("No movies found matching your query.")
         else:
-            movies = results["data"]["Get"]["Movie"]
-            if not movies:
-                st.info("No movies found matching your search criteria")
-            else:
-                st.success(f"Found {len(movies)} movies matching your search")
-                
-                for movie in movies:
-                    with st.expander(f"{movie['title']} ({movie['year']})"):
-                        col1, col2 = st.columns([2, 3])
-                        with col1:
-                            st.write(f"**Genres:** {', '.join(movie['genres'])}")
-                        with col2:
-                            st.write(f"**Plot:** {movie['plot']}")
+            st.success(f"Found {len(results.objects)} result(s):")
+            for obj in results.objects:
+                props = obj.properties
+                st.subheader(props.get("title", "Untitled"))
+                st.write(f"**Score:** {obj.metadata.distance:.4f}")
+                st.write(f"**Release Date:** {props.get('release_date', 'N/A')}")
+                st.write(f"**Genres:** {', '.join(props.get('genres', []))}")
+                st.write(f"**Overview:** {props.get('overview', 'No overview available.')}")
+                st.markdown("---")
 
     except Exception as e:
-        st.error(f"Error during search: {str(e)}")
-        logger.error(f"Search error: {str(e)}")
+        logger.error(f"Search error: {e}")
+        st.error(f"Search error: {str(e)}")
+
+# Clean up
+client.close()
