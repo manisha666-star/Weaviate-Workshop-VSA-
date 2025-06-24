@@ -13,7 +13,7 @@ try:
     auth = weaviate.auth.AuthApiKey(Config.WEAVIATE_API_KEY)
     client = weaviate.connect_to_weaviate_cloud(
         cluster_url=Config.WEAVIATE_URL,
-        auth_credentials=auth,
+        auth_credentials=weaviate.auth.AuthApiKey(Config.WEAVIATE_API_KEY),
         skip_init_checks=True  # Prevent gRPC timeout issues
     )
     model = SentenceTransformer(Config.EMBEDDING_MODEL)
