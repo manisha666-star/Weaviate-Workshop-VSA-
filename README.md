@@ -1,6 +1,7 @@
 Weaviate Vector Search Application - Project Documentation
 
 #Project Overview
+
 Built a semantic movie search application using:
 - Weaviate (vector database for semantic search)
 - MongoDB (source data storage)
@@ -9,16 +10,18 @@ Built a semantic movie search application using:
 
 #Project Steps & Implementation
 
-### 1. Setup & Configuration**
-- Created a Weaviate Cloud (WCS) cluster**
+### 1. Setup & Configuration
+- Created a Weaviate Cloud (WCS) cluster
 - Set up a MongoDB Atlas database with movie data
 - Configured environment variables (`.env`):
   ```ini
-  WEAVIATE_URL=https://your-cluster.weaviate.cloud
-  WEAVIATE_API_KEY=your-api-key
-  MONGO_URI=mongodb+srv://user:password@cluster.mongodb.net/
-  MONGO_DB=Moviedb
-  MONGO_COLLECTION=movies
+  # .env
+  WEAVIATE_URL="8ddmcj9dsag23ej1iosta.c0.europe-west3.gcp.weaviate.cloud" 
+  WEAVIATE_API_KEY="TktHUDNFNkFucWUyaVpwQl9mVmRxR3poaVZJOGhMTjdnQ2FFZHNnOFRwaTQ2UkJjM1ZWNTFUSWdjd0g0PV92MjAw"
+  MONGO_URI="mongodb://localhost:27017/" 
+  MONGO_DB="Moviedb"
+  MONGO_COLLECTION="movies"
+
   ```
 
 ### 2. Data Import from MongoDB to Weaviate
@@ -26,22 +29,21 @@ Built a semantic movie search application using:
 - Solution: Used `pymongo` to fetch data and `sentence-transformers` to create embeddings.
 - Key Code (`import_data.py`):
   ```python
-  # Convert MongoDB data to Weaviate format
-  cast_names = [p["name"] for p in movie.get("cast", [])[:3]]
-  text = f"{movie['title']} starring {', '.join(cast_names)}"
-  embedding = model.encode(text).tolist()
-  
-  # Insert into Weaviate
-  batch.add_object(
-      properties={
-          "movie_id": movie["movie_id"],
-          "title": movie["title"],
-          "cast": [p["name"] for p in movie.get("cast", [])],
-          "crew": [p["name"] for p in movie.get("crew", [])],
-          "combined_text": text
-      },
-      vector=embedding
-  )
+  # # Import data
+  for movie in tqdm(movies, desc="Importing to Weaviate"):
+    text = f"{movie['title']}: {movie.get('plot', '')}"
+    embedding = model.encode(text).tolist()
+    
+    weaviate_client.data_object.create(
+        data_object={
+            "title": movie["title"],
+            "plot": movie.get("plot", ""),
+            "genres": movie.get("genres", []),
+            "year": movie.get("year", 0)
+        },
+        class_name="Movie",
+        vector=embedding
+    )
   ```
 
 ### 3. Building the Streamlit UI
@@ -61,6 +63,12 @@ Built a semantic movie search application using:
   3. Added `.env` secrets in Streamlit settings.
   4. Deployed with one click.
 
+
+## Sample of code run locally
+  ```Python
+    streamlit run app.py
+  ```
+
 ---
 
 ## Problems Faced & Solutions
@@ -72,13 +80,11 @@ Built a semantic movie search application using:
   - Added fallback to REST API if gRPC fails.
   - Code Fix:
     ```python
+    auth = weaviate.auth.AuthApiKey(Config.WEAVIATE_API_KEY)
     client = weaviate.connect_to_weaviate_cloud(
         cluster_url=Config.WEAVIATE_URL,
-        auth_credentials=AuthApiKey(Config.WEAVIATE_API_KEY),
-        skip_init_checks=True,  # Bypass gRPC check
-        additional_config=weaviate.classes.init.AdditionalConfig(
-            grpc_enabled=False  # Force REST
-        )
+        auth_credentials=weaviate.auth.AuthApiKey(Config.WEAVIATE_API_KEY),
+        skip_init_checks=True  # Prevent gRPC timeout issues
     )
     ```
 
@@ -86,12 +92,14 @@ Built a semantic movie search application using:
 - Problem: `ValidationError` when creating Weaviate schema.
 - Solution: 
   - Used proper `Property` class (not dictionaries).
-  - Corrected `data_type` format (e.g., `DataType.TEXT`).
+  - Corrected `data_type` format (e.g., `["text"]`).
   - Code Fix:
     ```python
-    properties = [
-        Property(name="title", data_type=DataType.TEXT),
-        Property(name="cast", data_type=DataType.TEXT_ARRAY),
+    "properties": [
+        {"name": "title", "dataType": ["text"]},
+        {"name": "plot", "dataType": ["text"]},
+        {"name": "genres", "dataType": ["text[]"]},
+        {"name": "year", "dataType": ["int"]}
     ]
     ```
 
@@ -101,11 +109,12 @@ Built a semantic movie search application using:
   - Verified schema matched query fields.
   - Used `return_properties` correctly:
     ```python
-    results = movies.query.near_vector(
-        near_vector={"vector": embedding},
-        return_properties=["title", "cast", "crew"],
-        limit=5
-    )
+    results = movie_collection.query.near_vector(
+            near_vector=vector,
+            limit=5,
+            return_properties=["title", "overview", "genres", "release_date", "vote_average"],
+            return_metadata=["distance"]
+        )
     ```
 
 ### 4. Streamlit Deployment Issues
