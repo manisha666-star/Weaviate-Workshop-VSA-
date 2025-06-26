@@ -68,9 +68,9 @@ Built a semantic movie search application using:
   ```Python
     streamlit run app.py
   ```
-<img src="https://github.com/mmanisha666-star/Screenshot 2025-06-26 at 17.31.18.png?raw=true" width="500">
-<img src="https://github.com/mmanisha666-star/Screenshot 2025-06-26 at 17.30.52?raw=true" width="500">
-<img src="https://github.com/mmanisha666-star/Screenshot 2025-06-26 at 17.30.33.png?raw=true" width="500">
+<img src="https://github.com/mmanisha666-star/main/Screenshot 2025-06-26 at 17.31.18.png?raw=true" width="500">
+<img src="https://github.com/mmanisha666-star/main/Screenshot 2025-06-26 at 17.30.52?raw=true" width="500">
+<img src="https://github.com/mmanisha666-star/main/Screenshot 2025-06-26 at 17.30.33.png?raw=true" width="500">
 ---
 
 ## Problems Faced & Solutions
