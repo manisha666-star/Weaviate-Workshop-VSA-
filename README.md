@@ -16,8 +16,8 @@ Built a semantic movie search application using:
 - Configured environment variables (`.env`):
   ```ini
   # .env
-  WEAVIATE_URL="8ddmcj9dsag23ej1iosta.c0.europe-west3.gcp.weaviate.cloud" 
-  WEAVIATE_API_KEY="TktHUDNFNkFucWUyaVpwQl9mVmRxR3poaVZJOGhMTjdnQ2FFZHNnOFRwaTQ2UkJjM1ZWNTFUSWdjd0g0PV92MjAw"
+  WEAVIATE_URL="You URL" 
+  WEAVIATE_API_KEY="you API"
   MONGO_URI="mongodb://localhost:27017/" 
   MONGO_DB="Moviedb"
   MONGO_COLLECTION="movies"
